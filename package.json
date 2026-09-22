@@ -1,0 +1,21 @@
+{
+  "name": "streamx",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n api,web \"npm run dev -w server\" \"npm run dev -w client\"",
+    "dev:local": "concurrently -k -n api,web \"npm run dev:local -w server\" \"npm run dev -w client\"",
+    "build": "npm run build -w client",
+    "test": "npm run test -w server",
+    "start": "npm start -w server",
+    "format": "prettier --write \"client/src/**/*.{js,jsx,css}\" \"client/*.js\" \"server/**/*.js\" \"*.json\" \"client/*.json\" \"server/*.json\"",
+    "format:check": "prettier --check \"client/src/**/*.{js,jsx,css}\" \"client/*.js\" \"server/**/*.js\" \"*.json\" \"client/*.json\" \"server/*.json\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.0",
+    "prettier": "^3.9.8"
+  }
+}
