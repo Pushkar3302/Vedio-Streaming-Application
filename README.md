@@ -1,4 +1,4 @@
-# StreamX
+# My Video-Streaming-Platform Project
 
 A full-stack MERN video platform with a simple dark interface and a real adaptive streaming pipeline. Upload a video, follow its processing progress, and watch it through an HLS master playlist with automatic or manual quality selection.
 
