@@ -40,10 +40,13 @@ export async function start() {
     console.error("FFmpeg unavailable. Uploads disabled:", e.message),
   );
   await queue.recover();
-  await new Promise((resolve) =>
-    server.listen(config.port, "127.0.0.1", resolve),
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(config.port, config.host, resolve);
+  });
+  console.log(
+    `StreamX API listening on ${config.host}:${server.address().port}`,
   );
-  console.log(`StreamX API http://127.0.0.1:${config.port}`);
   return { server, io };
 }
 if (process.argv[1] === fileURLToPath(import.meta.url))

@@ -1,0 +1,33 @@
+services:
+  - type: web
+    name: streamx
+    runtime: node
+    plan: free
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 24.16.0
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: TRUST_PROXY_HOPS
+        value: 1
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MEDIA_STORAGE
+        value: gridfs
+      - key: MEDIA_QUOTA_MB
+        value: 350
+      - key: MAX_UPLOAD_MB
+        value: 25
+      - key: MAX_VIDEO_SECONDS
+        value: 120
+      - key: FFMPEG_THREADS
+        value: 1
+      - key: MONGOMS_DISABLE_POSTINSTALL
+        value: true

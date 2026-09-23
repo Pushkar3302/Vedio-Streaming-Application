@@ -1,3 +1,9 @@
+import {
+  usesGridFS,
+  storeOriginal,
+  removeStored,
+  serveStored,
+} from "./services/media-storage.js";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -55,6 +61,7 @@ const publicUser = (u) => ({
 });
 export function createApp(queue) {
   const app = express();
+  if (config.trustProxy > 0) app.set("trust proxy", config.trustProxy);
   app.use(
     helmet({
       crossOriginResourcePolicy: { policy: "cross-origin" },
@@ -72,6 +79,12 @@ export function createApp(queue) {
       legacyHeaders: false,
     }),
   );
+  app.get("/api/config", (req, res) =>
+    res.json({
+      maxUploadMB: config.maxUpload / 1024 / 1024,
+      maxVideoSeconds: config.maxDuration,
+    }),
+  );
   app.get("/api/health", async (req, res) => {
     let processing = true;
     try {
@@ -79,7 +92,10 @@ export function createApp(queue) {
     } catch {
       processing = false;
     }
-    res.json({ database: mongoose.connection.readyState === 1, processing });
+    const database = mongoose.connection.readyState === 1;
+    res
+      .status(database && processing ? 200 : 503)
+      .json({ database, processing });
   });
   app.use("/media/:id", async (req, res, next) => {
     try {
@@ -94,6 +110,8 @@ export function createApp(queue) {
         )
       )
         throw fail(404, "File not found.");
+      if (usesGridFS())
+        return serveStored(req, res, next, req.params.id, req.path.slice(1));
       express.static(videoDir(req.params.id), {
         setHeaders(response, file) {
           response.setHeader(
@@ -221,7 +239,35 @@ export function createApp(queue) {
         true,
       ),
   });
+  let receivingUpload = false;
   app.post("/api/videos", auth, async (req, res, next) => {
+    if (usesGridFS()) {
+      if (receivingUpload)
+        return next(
+          fail(429, "Another video is uploading. Please try again shortly."),
+        );
+      receivingUpload = true;
+      const release = () => {
+        receivingUpload = false;
+      };
+      res.once("finish", release);
+      res.once("close", release);
+      try {
+        if (
+          await Video.exists({
+            processingStatus: { $in: ["uploaded", "processing"] },
+          })
+        )
+          return next(
+            fail(
+              429,
+              "Another video is being prepared. Please try again shortly.",
+            ),
+          );
+      } catch (e) {
+        return next(e);
+      }
+    }
     try {
       await checkBinaries();
     } catch {
@@ -237,6 +283,7 @@ export function createApp(queue) {
         if (error) throw error;
         if (!req.file) throw fail(400, "Choose a video to upload.");
         const data = metadata.parse(req.body);
+        await storeOriginal(req.videoId, req.file.path);
         const video = await Video.create({
           ...data,
           _id: req.videoId,
@@ -246,6 +293,7 @@ export function createApp(queue) {
         queue.add(video.id);
         res.status(201).json(video);
       } catch (e) {
+        if (req.videoId) await removeStored(req.videoId).catch(console.error);
         if (req.videoId)
           await fs
             .rm(videoDir(req.videoId), { recursive: true, force: true })
@@ -301,6 +349,7 @@ export function createApp(queue) {
         409,
         "Please wait until processing finishes before deleting this video.",
       );
+    await removeStored(video.id);
     await fs.rm(videoDir(video.id), { recursive: true, force: true });
     await Promise.all([
       Comment.deleteMany({ video: video.id }),

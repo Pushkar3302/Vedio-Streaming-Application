@@ -26,3 +26,11 @@ Verified locally on 22 September 2026 with Node.js 24, real MongoDB and the bund
 Network-throttled automatic downshift/upshift and Safari-native HLS were not exercised in this browser session. Automatic bitrate selection uses HLS.js’s actual default adaptive controller, and the README includes steps for testing changing network conditions. Windows/Linux installation instructions are provided but this session tested macOS only. No load test or public deployment was performed.
 
 The running local library includes one clearly named QA test-pattern upload, created through the application. It is not seeded or used as a substitute for user uploads.
+
+## Free-hosting preparation (23 September 2026)
+
+- Six tests pass, including two GridFS regressions: an acknowledged original survives scratch-disk deletion, an interrupted job restores it and produces HLS, all generated files stream directly from MongoDB, reprocessing avoids duplicate files, deletion clears GridFS files/chunks, and the media quota rejects excess data.
+- Production build succeeds after adding server-configured upload limits.
+- Native Render Free Blueprint added; public-port binding, configurable proxy trust, durable-media mode and health-check failure status implemented.
+- Docker packaging is provided but was not built because no local Docker daemon is running.
+- Cloud deployment and hosted upload/playback verification remain pending hosting account access and Atlas configuration.

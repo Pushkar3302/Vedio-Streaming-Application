@@ -87,6 +87,13 @@ export default function UploadPage() {
     [percent, setPercent] = useState(0),
     [video, setVideo] = useState(null);
   const input = useRef();
+  const [limits, setLimits] = useState(null);
+  useEffect(() => {
+    api
+      .get("/config")
+      .then((r) => setLimits(r.data))
+      .catch((e) => setError(message(e)));
+  }, []);
   useEffect(() => {
     if (!video?._id || ["ready", "failed"].includes(video.processingStatus))
       return;
@@ -117,8 +124,12 @@ export default function UploadPage() {
       setError("Choose an MP4, MOV, MKV, WebM, AVI or M4V video.");
       return;
     }
-    if (f.size > 500 * 1024 * 1024) {
-      setError("Choose a video smaller than 500 MB.");
+    if (!limits || f.size > limits.maxUploadMB * 1024 * 1024) {
+      setError(
+        limits
+          ? `Choose a video smaller than ${limits.maxUploadMB} MB.`
+          : "Upload limits are loading. Please try again.",
+      );
       return;
     }
     setFile(f);
@@ -190,7 +201,7 @@ export default function UploadPage() {
           <button
             type="button"
             className="dropzone"
-            disabled={busy}
+            disabled={busy || !limits}
             onClick={() => input.current.click()}
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => {
@@ -207,7 +218,13 @@ export default function UploadPage() {
                 ? `${(file.size / 1024 / 1024).toFixed(1)} MB · Click to choose another file`
                 : "or click to choose a file"}
             </span>
-            <small>MP4, MOV, MKV, WebM, AVI, M4V · Up to 500 MB</small>
+            <small>
+              MP4, MOV, MKV, WebM, AVI, M4V · Up to {limits?.maxUploadMB ?? "…"}{" "}
+              MB
+              {limits?.maxVideoSeconds
+                ? ` · Maximum ${limits.maxVideoSeconds} seconds`
+                : ""}
+            </small>
           </button>
           <MetadataFields errors={errors} />
           {error && (
@@ -223,7 +240,7 @@ export default function UploadPage() {
           )}
           <div className="form-footer">
             <span>Your video will be publicly available once it’s ready.</span>
-            <button className="primary" disabled={busy}>
+            <button className="primary" disabled={busy || !limits}>
               <UploadCloud size={18} />
               {busy ? "Uploading…" : "Upload video"}
             </button>

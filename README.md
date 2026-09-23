@@ -2,6 +2,10 @@
 
 A full-stack MERN video platform with a simple dark interface and a real adaptive streaming pipeline. Upload a video, follow its processing progress, and watch it through an HLS master playlist with automatic or manual quality selection.
 
+## Deploy online for free
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for the Render Free + MongoDB Atlas Free setup. The included `render.yaml` uses MongoDB GridFS for durable video storage, so uploads survive free-server restarts. The hosted demo limits videos to 25 MB and 120 seconds; local defaults stay unchanged. Hosting account access and the secret Atlas connection string are required before it can go live.
+
 ## Quick start
 
 Requirements: Node.js 22.12+ (tested with Node 24), npm, and an internet connection for the first installation. FFmpeg and FFprobe binaries are installed with npm on supported platforms.
@@ -42,7 +46,7 @@ Root installation uses npm workspaces and installs both applications. `npm run b
 | `MONGO_URI` | `mongodb://127.0.0.1:27017/streamx` |
 | `JWT_SECRET` | Required, at least 32 characters |
 | `CLIENT_URL` | `http://127.0.0.1:5173`, exact permitted browser origin |
-| `MAX_UPLOAD_MB` | `500`, server upload limit; update the client limit if changed |
+| `MAX_UPLOAD_MB` | `500`, server upload limit; client reads this limit from `/api/config` |
 | `FFMPEG_PATH` | Optional system binary override |
 | `FFPROBE_PATH` | Optional system binary override |
 
@@ -83,7 +87,7 @@ flowchart TD
     Socket --> React
 ```
 
-MongoDB stores users, videos and processing state, comments, saved videos, watch progress, and short-lived deduplication receipts. Media files live on disk, not inside MongoDB. Public media routes expose only generated thumbnails/playlists/segments of ready videos; originals are never publicly served.
+MongoDB stores users, videos and processing state, comments, saved videos, watch progress, and short-lived deduplication receipts. Media files live on disk by default. In free-hosting mode, MongoDB GridFS stores originals and generated media; disk is used only as temporary processing space. Public media routes expose only generated thumbnails/playlists/segments of ready videos; originals are never publicly served.
 
 ### Adaptive streaming
 

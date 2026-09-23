@@ -1,3 +1,9 @@
+import {
+  usesGridFS,
+  restoreOriginal,
+  storeGenerated,
+  removeStored,
+} from "./media-storage.js";
 import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -69,6 +75,10 @@ export async function encode(original, dir, update) {
   const sourceHeight = rotation % 180 === 90 ? stream.width : stream.height;
   const sourceWidth = rotation % 180 === 90 ? stream.height : stream.width;
   const duration = Number(probe.format.duration);
+  if (config.maxDuration && duration > config.maxDuration)
+    throw Object.assign(new Error("Video duration exceeds hosting limit"), {
+      userMessage: `Please choose a video no longer than ${config.maxDuration} seconds.`,
+    });
   const qualities = qualitiesFor(sourceHeight);
   if (qualities[0] < 2) throw Error("Invalid video dimensions");
   await update(3, "Creating your thumbnail…");
@@ -115,6 +125,8 @@ export async function encode(original, dir, update) {
         `scale=${width}:${h},setsar=1`,
         "-c:v",
         "libx264",
+        "-threads",
+        String(config.encodeThreads),
         "-preset",
         "veryfast",
         "-pix_fmt",
@@ -204,11 +216,13 @@ export function createQueue(io) {
           if (result) io.to(String(video.owner)).emit("video:progress", result);
         };
         await update(1, "Preparing your video…");
+        await restoreOriginal(id, video.originalFile, videoDir(id));
         const result = await encode(
           path.join(videoDir(id), video.originalFile),
           videoDir(id),
           update,
         );
+        await storeGenerated(id, videoDir(id));
         const ready = await Video.findByIdAndUpdate(
           id,
           {
@@ -222,14 +236,24 @@ export function createQueue(io) {
           { new: true },
         );
         io.to(String(video.owner)).emit("video:progress", ready);
+        if (usesGridFS())
+          await fs.rm(videoDir(id), { recursive: true, force: true });
       } catch (error) {
         console.error("Video processing failed:", id, error.message);
+        await removeStored(id, true).catch(console.error);
+        if (usesGridFS())
+          await fs
+            .rm(videoDir(id), { recursive: true, force: true })
+            .catch(console.error);
         const failed = await Video.findByIdAndUpdate(
           id,
           {
             processingStatus: "failed",
             processingMessage:
-              "We couldn't process this video. Please try another video file.",
+              error.userMessage ||
+              (error.status === 507
+                ? error.message
+                : "We couldn't process this video. Please try another video file."),
           },
           { new: true },
         ).catch(() => null);
